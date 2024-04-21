@@ -261,11 +261,12 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
     // All ones
     maskAll_x = _cs149_init_ones();
     maskAll_y = _cs149_init_ones();
+    maskIsZero = _cs149_init_ones(0);
     // Load vector of values from contiguous memory addresses
     _cs149_vload_float(x, values+i, maskAll_x);               // x = values[i];
-    _cs149_vload_int(y, exponents+i, maskAll_y);               // x = values[i];
+    _cs149_vload_int(y, exponents+i, maskAll_y);               // y = exponents[i];
 
-    _cs149_veq_int(maskIsZero, y, zero_y, maskAll_y);
+    _cs149_veq_int(maskIsZero, y, zero_y, maskAll_y); // if (y == 0) {
 
     // Execute instruction using mask ("if" clause)
     _cs149_vset_float(result, 1.f, maskIsZero); //   output[i] = 1.f;
@@ -277,9 +278,11 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
     _cs149_vload_float(result_temp, values+i, maskAll_x); //   float result = x;
     _cs149_vsub_int(count, y, _cs149_vset_int(1), maskIsNotZero); // int count = y - 1;
 
-    for (int j=0; j<EXP_MAX; j++) {
-      _cs149_vmult_float(result, result_temp, x, maskIsNotZero); // result *= x;
-      _cs149_vsub_int(count, count, _cs149_vset_int(1), maskIsNotZero); // count--;
+    __cs149_mask tmp = maskIsNotZero; // in case can't be used in later operations
+    while(_cs149_cntbits(tmp)){
+      _cs149_vmult_float(result, result_temp, x, tmp); // result *= x;
+      _cs149_vsub_int(count, count, _cs149_vset_int(1), tmp); // count--;
+      _cs149_veq_int(maskIsZero, count, zero_y, tmp); // update mask
     }
 
     _cs149_vgt_float(maskIsGreaterThanValue, result, _cs149_vset_float(9.999999f), maskIsNotZero);
