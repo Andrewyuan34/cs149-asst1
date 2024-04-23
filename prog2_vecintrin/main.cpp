@@ -257,7 +257,7 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
   __cs149_vec_int zero = _cs149_vset_int(0);
   __cs149_vec_int one = _cs149_vset_int(1);
   __cs149_vec_float nine = _cs149_vset_float(9.999999f);
-  __cs149_mask maskAll, maskIsZero, maskIsNotZero, maskIsGreaterThanValue;
+  __cs149_mask maskAll, maskIsZero, maskIsNotZero, maskIsGreaterThanValue, maskIsOne;;
   for (int i=0; i<N; i+=VECTOR_WIDTH){
     // All ones
     maskAll = _cs149_init_ones();
@@ -274,10 +274,19 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
     // Inverse maskIsNegative to generate "else" mask
     maskIsNotZero = _cs149_mask_not(maskIsZero);     // } else {
 
+
+    // Special treatment for exp = 1
+    _cs149_veq_int(maskIsOne, y, one, maskAll);// if (y == 1) {
+    _cs149_vmove_float(result, x, maskIsOne); // result = x;
+    __cs149_mask maskIsNotOne = _cs149_mask_not(maskIsOne);
+    maskIsNotZero = _cs149_mask_and(maskIsNotZero, maskIsNotOne); 
+
+
     // Execute instruction ("else" clause)
     _cs149_vmove_float(result, x, maskIsNotZero); //   float result = x;
     _cs149_vsub_int(count, y, one, maskIsNotZero); // int count = y - 1;
 
+    
     __cs149_mask tmp = maskIsNotZero; // in case can't be used in later operations
     while(_cs149_cntbits(tmp)){
       _cs149_vmult_float(result, result, x, tmp); // result *= x;
@@ -285,14 +294,14 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
       _cs149_vgt_int(tmp, count, zero, tmp); // update mask
     }
 
-    _cs149_vgt_float(maskIsGreaterThanValue, result, nine, maskIsNotZero); // if (result > 9.999999f) {
+    _cs149_vgt_float(maskIsGreaterThanValue, result, nine, maskAll); // if (result > 9.999999f) {
     _cs149_vset_float(result, 9.999999f, maskIsGreaterThanValue); //   result = 9.999999f;
 
     // Write results back to memory
     _cs149_vstore_float(output+i, result, maskAll);
   }
 
-  if (i != N) {
+  if (i != N) { // handle the remaining elements
     i -= VECTOR_WIDTH;
     clampedExpSerial(values + i, exponents + i, output + i, N - i);
   } 
@@ -311,16 +320,30 @@ float arraySumSerial(float* values, int N) {
 // returns the sum of all elements in values
 // You can assume N is a multiple of VECTOR_WIDTH
 // You can assume VECTOR_WIDTH is a power of 2
+
 float arraySumVector(float* values, int N) {
   
   //
   // CS149 STUDENTS TODO: Implement your vectorized version of arraySumSerial here
   //
-  
+  __cs149_mask maskAll = _cs149_init_ones(); // mask all
+  __cs149_vec_float sum = _cs149_vset_float(0.f);
+  __cs149_vec_float tmp;
   for (int i=0; i<N; i+=VECTOR_WIDTH) {
-
+    _cs149_vload_float(tmp, values+i, maskAll); //store the values in tmp for each vector_width position
+    _cs149_vadd_float(sum, sum, tmp, maskAll); // add the values in tmp to sum so that sum will have the sum of all the values in the vector.
   }
 
-  return 0.0;
+  // Reduction
+  int i = VECTOR_WIDTH;
+  while (i /= 2) { // Reduce the width of the vector by half
+    _cs149_hadd_float(sum, sum); // Update sum to have the property that fit with the loop.
+    _cs149_interleave_float(sum, sum); // Interleave the sum to have the property that fit with the loop.
+  }
+
+  // Store the sum to the output
+  float output[VECTOR_WIDTH];
+  _cs149_vstore_float(output, sum, maskAll);
+  return output[0];
 }
 
