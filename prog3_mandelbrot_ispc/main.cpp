@@ -177,30 +177,35 @@ int main(int argc, char** argv) {
     }
 
     double minTaskISPC = 1e30;
-    if (useTasks) {
+    for(int a = 0; a < 32; ++a){
+        if (useTasks) {
         //
         // Tasking version of the ISPC code
         //
-        for (int i = 0; i < 3; ++i) {
-            double startTime = CycleTimer::currentSeconds();
-            mandelbrot_ispc_withtasks(x0, y0, x1, y1, width, height, maxIterations, output_ispc_tasks);
-            double endTime = CycleTimer::currentSeconds();
-            minTaskISPC = std::min(minTaskISPC, endTime - startTime);
+            for (int i = 0; i < 3; ++i) {
+                double startTime = CycleTimer::currentSeconds();
+                mandelbrot_ispc_withtasks(x0, y0, x1, y1, width, height, maxIterations, output_ispc_tasks, a+1);
+                double endTime = CycleTimer::currentSeconds();
+                minTaskISPC = std::min(minTaskISPC, endTime - startTime);
+            }
+
+            printf("[mandelbrot multicore ispc]:\t[%.3f] ms\n", minTaskISPC * 1000);
+            writePPMImage(output_ispc_tasks, width, height, "mandelbrot-task-ispc.ppm", maxIterations);
+
+            if (! verifyResult (output_serial, output_ispc_tasks, width, height)) {
+                printf ("Error : ISPC output differs from sequential output\n");
+                return 1;
+            }
         }
-
-        printf("[mandelbrot multicore ispc]:\t[%.3f] ms\n", minTaskISPC * 1000);
-        writePPMImage(output_ispc_tasks, width, height, "mandelbrot-task-ispc.ppm", maxIterations);
-
-        if (! verifyResult (output_serial, output_ispc_tasks, width, height)) {
-            printf ("Error : ISPC output differs from sequential output\n");
-            return 1;
+        printf("\t\t\t\t(%.2fx speedup from ISPC)\n", minSerial/minISPC);
+        if (useTasks) {
+            printf("\t\t\t\t(%.2fx speedup from task ISPC for: %i threads)\n", minSerial/minTaskISPC, a+1);
         }
+        //reach to 32 times speedup at 14 threads
     }
+    
 
-    printf("\t\t\t\t(%.2fx speedup from ISPC)\n", minSerial/minISPC);
-    if (useTasks) {
-        printf("\t\t\t\t(%.2fx speedup from task ISPC)\n", minSerial/minTaskISPC);
-    }
+    
 
     delete[] output_serial;
     delete[] output_ispc;
