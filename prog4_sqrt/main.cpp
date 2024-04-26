@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <pthread.h>
 #include <math.h>
-
+#include <functional>
 #include "CycleTimer.h"
 #include "sqrt_ispc.h"
 
@@ -32,11 +32,17 @@ int main() {
         // TODO: CS149 students.  Attempt to change the values in the
         // array here to meet the instructions in the handout: we want
         // to you generate best and worse-case speedups
-        
+        if(i % 7 == 0)
+            values[i] = 2.99f;
+        else
+            values[i] = 0.01f;
         // starter code populates array with random input values
-        values[i] = .001f + 2.998f * static_cast<float>(rand()) / RAND_MAX;
+        //values[i] = .001f + 2.998f * static_cast<float>(rand()) / RAND_MAX;
+        //values[i] = 2.99f;
     }
 
+    //std::sort(values, values + N, std::greater<float>());
+    //std::sort(values, values + N);
     // generate a gold version to check results
     for (unsigned int i=0; i<N; i++)
         gold[i] = sqrt(values[i]);
@@ -48,7 +54,7 @@ int main() {
     double minSerial = 1e30;
     for (int i = 0; i < 3; ++i) {
         double startTime = CycleTimer::currentSeconds();
-        sqrtSerial(N, initialGuess, values, output);
+        sqrtSerial(N, 2.0f, values, output);
         double endTime = CycleTimer::currentSeconds();
         minSerial = std::min(minSerial, endTime - startTime);
     }
@@ -64,7 +70,7 @@ int main() {
     double minISPC = 1e30;
     for (int i = 0; i < 3; ++i) {
         double startTime = CycleTimer::currentSeconds();
-        sqrt_ispc(N, initialGuess, values, output);
+        sqrt_ispc(N, 0.001f, values, output);
         double endTime = CycleTimer::currentSeconds();
         minISPC = std::min(minISPC, endTime - startTime);
     }
